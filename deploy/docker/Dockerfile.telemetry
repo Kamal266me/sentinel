@@ -1,0 +1,25 @@
+# Build stage
+FROM golang:1.19-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /telemetry ./cmd/telemetry
+
+# Runtime stage
+FROM alpine:3.18
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY --from=builder /telemetry /usr/local/bin/telemetry
+
+RUN adduser -D -u 1000 aeop
+USER aeop
+
+EXPOSE 9100
+
+ENTRYPOINT ["/usr/local/bin/telemetry"]
