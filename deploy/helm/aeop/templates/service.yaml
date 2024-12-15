@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-predictor
+  labels:
+    app.kubernetes.io/name: aeop-predictor
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless for peer discovery
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: metrics
+      protocol: TCP
+    - name: api
+      port: 9101
+      targetPort: api
+      protocol: TCP
+    {{- if .Values.predictor.consensus.enabled }}
+    - name: consensus
+      port: {{ .Values.predictor.consensus.port }}
+      targetPort: consensus
+      protocol: TCP
+    {{- end }}
+  selector:
+    app.kubernetes.io/name: aeop-predictor
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-predictor
+  labels:
+    app.kubernetes.io/name: aeop-predictor
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aeop-predictor
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+      path: /metrics
+{{- end }}

@@ -1,0 +1,75 @@
+# AEOP Helm Chart Values
+
+# Predictor configuration
+predictor:
+  image:
+    repository: ghcr.io/aqstack/aeop/predictor
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Resource limits optimized for edge
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  # Prediction thresholds
+  thresholds:
+    warn: 0.3
+    critical: 0.7
+    minConfidence: 0.6
+
+  # Metrics collection interval
+  interval: 1s
+
+  # Enable consensus for partition handling
+  consensus:
+    enabled: true
+    port: 9200
+
+  # Node selector for edge nodes
+  nodeSelector: {}
+
+  # Tolerations for edge nodes
+  tolerations:
+    - key: "node-role.kubernetes.io/edge"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+# Telemetry (standalone) configuration
+telemetry:
+  enabled: false  # Predictor includes telemetry
+  image:
+    repository: ghcr.io/aqstack/aeop/telemetry
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 20m
+      memory: 32Mi
+
+# Prometheus ServiceMonitor
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  labels: {}
+
+# Pod Security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

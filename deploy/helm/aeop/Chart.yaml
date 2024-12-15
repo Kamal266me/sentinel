@@ -1,0 +1,18 @@
+apiVersion: v2
+name: aeop
+description: Autonomous Edge Operations Platform - Self-healing edge orchestration with predictive failure detection and partition resilience
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - edge
+  - kubernetes
+  - aiops
+  - self-healing
+  - partition-tolerance
+maintainers:
+  - name: Omair
+    url: https://github.com/aqstack
+home: https://github.com/aqstack/aeop
+sources:
+  - https://github.com/aqstack/aeop

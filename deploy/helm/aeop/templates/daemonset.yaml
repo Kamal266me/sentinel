@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Release.Name }}-predictor
+  labels:
+    app.kubernetes.io/name: aeop-predictor
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aeop-predictor
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aeop-predictor
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      serviceAccountName: {{ .Release.Name }}-predictor
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: predictor
+          image: "{{ .Values.predictor.image.repository }}:{{ .Values.predictor.image.tag }}"
+          imagePullPolicy: {{ .Values.predictor.image.pullPolicy }}
+          args:
+            - --node=$(NODE_NAME)
+            - --listen=:9101
+            - --metrics=:9100
+            - --interval={{ .Values.predictor.interval }}
+            - --warn-threshold={{ .Values.predictor.thresholds.warn }}
+            - --critical-threshold={{ .Values.predictor.thresholds.critical }}
+            - --min-confidence={{ .Values.predictor.thresholds.minConfidence }}
+            {{- if .Values.predictor.consensus.enabled }}
+            - --consensus-addr=:{{ .Values.predictor.consensus.port }}
+            {{- end }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: metrics
+              containerPort: 9100
+              protocol: TCP
+            - name: api
+              containerPort: 9101
+              protocol: TCP
+            {{- if .Values.predictor.consensus.enabled }}
+            - name: consensus
+              containerPort: {{ .Values.predictor.consensus.port }}
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.predictor.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: proc
+              mountPath: /proc
+              readOnly: true
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+      {{- with .Values.predictor.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.predictor.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
