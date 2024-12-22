@@ -2,6 +2,7 @@ package ml
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,7 +139,7 @@ func TestPredictThermalCritical(t *testing.T) {
 	}
 
 	// Critical temperature should have elevated failure probability
-	// (thermal risk is weighted at 35%, plus rapid rise bonus)
+	// (thermal risk is weighted at 30%, plus rapid rise bonus)
 	if pred.FailureProbability < 0.3 {
 		t.Errorf("FailureProbability = %v, want > 0.3 for critical temperature", pred.FailureProbability)
 	}
@@ -146,7 +147,7 @@ func TestPredictThermalCritical(t *testing.T) {
 	// Should have thermal reason
 	hasThermalReason := false
 	for _, r := range pred.Reasons {
-		if contains(r, "temp") || contains(r, "thermal") || contains(r, "throttl") {
+		if strings.Contains(r, "temp") || strings.Contains(r, "thermal") || strings.Contains(r, "throttl") {
 			hasThermalReason = true
 			break
 		}
@@ -184,7 +185,7 @@ func TestPredictMemoryPressure(t *testing.T) {
 	}
 
 	// High memory should increase failure probability
-	// (memory risk is weighted at 25%)
+	// (memory risk is weighted at 20%)
 	if pred.FailureProbability < 0.2 {
 		t.Errorf("FailureProbability = %v, want > 0.2 for memory pressure", pred.FailureProbability)
 	}
@@ -192,7 +193,7 @@ func TestPredictMemoryPressure(t *testing.T) {
 	// Should have memory reason
 	hasMemoryReason := false
 	for _, r := range pred.Reasons {
-		if contains(r, "memory") {
+		if strings.Contains(r, "memory") {
 			hasMemoryReason = true
 			break
 		}
@@ -231,7 +232,7 @@ func TestPredictTrendRising(t *testing.T) {
 	// Rising trend should be detected
 	hasTrendReason := false
 	for _, r := range pred.Reasons {
-		if contains(r, "trend") || contains(r, "rising") {
+		if strings.Contains(r, "trend") || strings.Contains(r, "rising") {
 			hasTrendReason = true
 			break
 		}
@@ -400,5 +401,332 @@ func BenchmarkAddSample(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		p.AddSample(sample)
+	}
+}
+
+func TestPredictDiskCritical(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+	ctx := context.Background()
+
+	// Add normal samples
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryUsagePercent: 40.0,
+			DiskUsagePercent:   50.0,
+			LoadAverage1Min:    1.0,
+		})
+	}
+
+	// Current sample has critical disk usage
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryUsagePercent: 40.0,
+		DiskUsagePercent:   96.0, // Critical!
+		LoadAverage1Min:    1.0,
+	}
+
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+
+	// Critical disk should increase failure probability
+	// (disk risk is weighted at 10%)
+	if pred.FailureProbability < 0.1 {
+		t.Errorf("FailureProbability = %v, want > 0.1 for disk critical", pred.FailureProbability)
+	}
+
+	// Should have disk reason
+	hasDiskReason := false
+	for _, r := range pred.Reasons {
+		if strings.Contains(r, "disk") {
+			hasDiskReason = true
+			break
+		}
+	}
+	if !hasDiskReason {
+		t.Errorf("Expected disk-related reason in %v", pred.Reasons)
+	}
+}
+
+func TestPredictDiskIOLatency(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+	ctx := context.Background()
+
+	// Add normal samples
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryUsagePercent: 40.0,
+			DiskIOLatencyMs:    5.0,
+			LoadAverage1Min:    1.0,
+		})
+	}
+
+	// Current sample has high disk I/O latency
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryUsagePercent: 40.0,
+		DiskIOLatencyMs:    150.0, // Critical latency!
+		LoadAverage1Min:    1.0,
+	}
+
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+
+	// Should have disk I/O reason
+	hasDiskIOReason := false
+	for _, r := range pred.Reasons {
+		if strings.Contains(r, "disk_io") {
+			hasDiskIOReason = true
+			break
+		}
+	}
+	if !hasDiskIOReason {
+		t.Errorf("Expected disk_io-related reason in %v", pred.Reasons)
+	}
+}
+
+func TestPredictNetworkLatency(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+	ctx := context.Background()
+
+	// Add normal samples
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryUsagePercent: 40.0,
+			NetworkLatencyMs:   10.0,
+			LoadAverage1Min:    1.0,
+		})
+	}
+
+	// Current sample has high network latency
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryUsagePercent: 40.0,
+		NetworkLatencyMs:   600.0, // Critical latency!
+		LoadAverage1Min:    1.0,
+	}
+
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+
+	// Should have network latency reason
+	hasNetworkReason := false
+	for _, r := range pred.Reasons {
+		if strings.Contains(r, "network_latency") {
+			hasNetworkReason = true
+			break
+		}
+	}
+	if !hasNetworkReason {
+		t.Errorf("Expected network_latency-related reason in %v", pred.Reasons)
+	}
+}
+
+func TestPredictNetworkErrors(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+	ctx := context.Background()
+
+	// Add samples with network traffic but no errors
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryUsagePercent: 40.0,
+			NetworkRxBytes:     uint64(i) * 1024 * 1024, // 1MB per sample
+			NetworkTxBytes:     uint64(i) * 512 * 1024,
+			NetworkRxErrors:    0,
+			NetworkTxErrors:    0,
+			LoadAverage1Min:    1.0,
+		})
+	}
+
+	// Current sample has high error rate
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryUsagePercent: 40.0,
+		NetworkRxBytes:     50 * 1024 * 1024,
+		NetworkTxBytes:     25 * 1024 * 1024,
+		NetworkRxErrors:    100, // High errors!
+		NetworkTxErrors:    50,
+		LoadAverage1Min:    1.0,
+	}
+
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+
+	// Should have network errors reason
+	hasNetworkErrorReason := false
+	for _, r := range pred.Reasons {
+		if strings.Contains(r, "network_errors") {
+			hasNetworkErrorReason = true
+			break
+		}
+	}
+	if !hasNetworkErrorReason {
+		t.Errorf("Expected network_errors-related reason in %v", pred.Reasons)
+	}
+}
+
+func TestCalculateDiskRisk(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+
+	tests := []struct {
+		name           string
+		metrics        *collector.NodeMetrics
+		wantMinRisk    float64
+		wantMaxRisk    float64
+		wantReasonPart string
+	}{
+		{
+			name: "normal disk",
+			metrics: &collector.NodeMetrics{
+				DiskUsagePercent: 50.0,
+				DiskIOLatencyMs:  5.0,
+			},
+			wantMinRisk:    0.0,
+			wantMaxRisk:    0.1,
+			wantReasonPart: "",
+		},
+		{
+			name: "disk full",
+			metrics: &collector.NodeMetrics{
+				DiskUsagePercent: 96.0,
+				DiskIOLatencyMs:  5.0,
+			},
+			wantMinRisk:    0.9,
+			wantMaxRisk:    1.0,
+			wantReasonPart: "disk_full",
+		},
+		{
+			name: "high latency",
+			metrics: &collector.NodeMetrics{
+				DiskUsagePercent: 50.0,
+				DiskIOLatencyMs:  120.0,
+			},
+			wantMinRisk:    0.4,
+			wantMaxRisk:    0.6,
+			wantReasonPart: "disk_io_critical",
+		},
+		{
+			name: "disk full with high latency",
+			metrics: &collector.NodeMetrics{
+				DiskUsagePercent: 96.0,
+				DiskIOLatencyMs:  120.0,
+			},
+			wantMinRisk:    1.0,
+			wantMaxRisk:    1.0,
+			wantReasonPart: "disk_full",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			risk, reason := p.calculateDiskRisk(tt.metrics)
+
+			if risk < tt.wantMinRisk || risk > tt.wantMaxRisk {
+				t.Errorf("calculateDiskRisk() risk = %v, want between %v and %v",
+					risk, tt.wantMinRisk, tt.wantMaxRisk)
+			}
+
+			if tt.wantReasonPart != "" && !strings.Contains(reason, tt.wantReasonPart) {
+				t.Errorf("calculateDiskRisk() reason = %v, want to contain %v",
+					reason, tt.wantReasonPart)
+			}
+		})
+	}
+}
+
+func TestCalculateNetworkRisk(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+
+	// Add some history for error rate calculation
+	for i := 0; i < 10; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			NetworkRxBytes:  uint64(i) * 1024 * 1024,
+			NetworkTxBytes:  uint64(i) * 512 * 1024,
+			NetworkRxErrors: 0,
+			NetworkTxErrors: 0,
+		})
+	}
+
+	tests := []struct {
+		name           string
+		metrics        *collector.NodeMetrics
+		wantMinRisk    float64
+		wantMaxRisk    float64
+		wantReasonPart string
+	}{
+		{
+			name: "normal network",
+			metrics: &collector.NodeMetrics{
+				NetworkLatencyMs: 20.0,
+				NetworkRxBytes:   10 * 1024 * 1024,
+				NetworkTxBytes:   5 * 1024 * 1024,
+				NetworkRxErrors:  0,
+				NetworkTxErrors:  0,
+			},
+			wantMinRisk:    0.0,
+			wantMaxRisk:    0.1,
+			wantReasonPart: "",
+		},
+		{
+			name: "critical latency",
+			metrics: &collector.NodeMetrics{
+				NetworkLatencyMs: 600.0,
+				NetworkRxBytes:   10 * 1024 * 1024,
+				NetworkTxBytes:   5 * 1024 * 1024,
+				NetworkRxErrors:  0,
+				NetworkTxErrors:  0,
+			},
+			wantMinRisk:    0.7,
+			wantMaxRisk:    0.9,
+			wantReasonPart: "network_latency_critical",
+		},
+		{
+			name: "elevated latency",
+			metrics: &collector.NodeMetrics{
+				NetworkLatencyMs: 150.0,
+				NetworkRxBytes:   10 * 1024 * 1024,
+				NetworkTxBytes:   5 * 1024 * 1024,
+				NetworkRxErrors:  0,
+				NetworkTxErrors:  0,
+			},
+			wantMinRisk:    0.1,
+			wantMaxRisk:    0.3,
+			wantReasonPart: "network_latency_elevated",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			risk, reason := p.calculateNetworkRisk(tt.metrics)
+
+			if risk < tt.wantMinRisk || risk > tt.wantMaxRisk {
+				t.Errorf("calculateNetworkRisk() risk = %v, want between %v and %v",
+					risk, tt.wantMinRisk, tt.wantMaxRisk)
+			}
+
+			if tt.wantReasonPart != "" && !strings.Contains(reason, tt.wantReasonPart) {
+				t.Errorf("calculateNetworkRisk() reason = %v, want to contain %v",
+					reason, tt.wantReasonPart)
+			}
+		})
 	}
 }
