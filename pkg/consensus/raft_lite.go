@@ -7,9 +7,11 @@ package consensus
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	mathrand "math/rand"
 	"net"
 	"sync"
 	"time"
@@ -168,6 +170,14 @@ func NewNode(config *Config) (*Node, error) {
 	if config.NodeID == "" {
 		return nil, fmt.Errorf("node ID is required")
 	}
+
+	// Seed the random number generator with cryptographically secure randomness
+	var seed int64
+	if err := binary.Read(rand.Reader, binary.BigEndian, &seed); err != nil {
+		// Fallback to time-based seed if crypto/rand fails
+		seed = time.Now().UnixNano()
+	}
+	mathrand.Seed(seed)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -551,7 +561,7 @@ func (n *Node) electionLoop() {
 		n.mu.RLock()
 		state := n.state
 		lastContact := n.lastContact
-		timeout := n.config.ElectionTimeout + time.Duration(rand.Int63n(int64(n.config.ElectionTimeout)))
+		timeout := n.config.ElectionTimeout + time.Duration(mathrand.Int63n(int64(n.config.ElectionTimeout)))
 		n.mu.RUnlock()
 
 		if state != Leader && time.Since(lastContact) > timeout {
