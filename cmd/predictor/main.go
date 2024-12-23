@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -348,17 +349,11 @@ func splitPeers(s string) []string {
 		return nil
 	}
 	var peers []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == ',' {
-			if i > start {
-				peers = append(peers, s[start:i])
-			}
-			start = i + 1
+	for _, peer := range strings.Split(s, ",") {
+		peer = strings.TrimSpace(peer)
+		if peer != "" {
+			peers = append(peers, peer)
 		}
-	}
-	if start < len(s) {
-		peers = append(peers, s[start:])
 	}
 	return peers
 }
