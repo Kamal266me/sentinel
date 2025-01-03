@@ -5,6 +5,7 @@ package healthscore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math"
 	"strings"
 	"sync"
@@ -12,6 +13,9 @@ import (
 
 	"github.com/aqstack/sentinel/pkg/collector"
 )
+
+// ErrPredictionTimeout is returned when prediction exceeds the configured timeout.
+var ErrPredictionTimeout = errors.New("prediction timeout exceeded")
 
 // Prediction represents a failure prediction result.
 type Prediction struct {
@@ -34,6 +38,8 @@ type PredictionThresholds struct {
 	MinConfidence float64
 	// TimeToFailureThreshold triggers action if predicted failure is within this window
 	TimeToFailureThreshold time.Duration
+	// PredictionTimeout is the maximum time allowed for a prediction
+	PredictionTimeout time.Duration
 }
 
 // DefaultThresholds returns sensible defaults for edge environments.
@@ -43,6 +49,7 @@ func DefaultThresholds() *PredictionThresholds {
 		FailureProbabilityCritical: 0.7,
 		MinConfidence:              0.6,
 		TimeToFailureThreshold:     15 * time.Minute,
+		PredictionTimeout:          100 * time.Millisecond,
 	}
 }
 
@@ -125,8 +132,37 @@ func updateMeanStd(oldMean, oldStd, newValue, n float64) (float64, float64) {
 
 // Predict generates a failure prediction based on current metrics and history.
 func (p *Predictor) Predict(ctx context.Context, current *collector.NodeMetrics) (*Prediction, error) {
+	// Apply timeout if configured and context doesn't already have a deadline
+	if p.thresholds.PredictionTimeout > 0 {
+		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, p.thresholds.PredictionTimeout)
+			defer cancel()
+		}
+	}
+
+	// Check context before acquiring lock
+	select {
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, ErrPredictionTimeout
+		}
+		return nil, ctx.Err()
+	default:
+	}
+
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+
+	// Check context after acquiring lock
+	select {
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, ErrPredictionTimeout
+		}
+		return nil, ctx.Err()
+	default:
+	}
 
 	pred := &Prediction{
 		Timestamp:      time.Now(),

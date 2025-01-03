@@ -730,3 +730,115 @@ func TestCalculateNetworkRisk(t *testing.T) {
 		})
 	}
 }
+
+func TestPredictContextCancellation(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+
+	// Add enough samples for prediction
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryUsagePercent: 40.0,
+			LoadAverage1Min:    1.0,
+		})
+	}
+
+	// Create an already-cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryUsagePercent: 40.0,
+		LoadAverage1Min:    1.0,
+	}
+
+	_, err := p.Predict(ctx, current)
+	if err == nil {
+		t.Error("Predict() expected error for cancelled context, got nil")
+	}
+	if err != context.Canceled {
+		t.Errorf("Predict() error = %v, want context.Canceled", err)
+	}
+}
+
+func TestPredictWithCustomTimeout(t *testing.T) {
+	thresholds := &PredictionThresholds{
+		FailureProbabilityWarn:     0.3,
+		FailureProbabilityCritical: 0.7,
+		MinConfidence:              0.6,
+		TimeToFailureThreshold:     15 * time.Minute,
+		PredictionTimeout:          5 * time.Second, // Generous timeout
+	}
+	p := NewPredictor("test-node", thresholds)
+
+	// Add enough samples for prediction
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryUsagePercent: 40.0,
+			LoadAverage1Min:    1.0,
+		})
+	}
+
+	ctx := context.Background()
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryUsagePercent: 40.0,
+		LoadAverage1Min:    1.0,
+	}
+
+	// Should succeed with generous timeout
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+	if pred == nil {
+		t.Error("Predict() returned nil prediction")
+	}
+}
+
+func TestPredictRespectsExistingDeadline(t *testing.T) {
+	thresholds := &PredictionThresholds{
+		FailureProbabilityWarn:     0.3,
+		FailureProbabilityCritical: 0.7,
+		MinConfidence:              0.6,
+		TimeToFailureThreshold:     15 * time.Minute,
+		PredictionTimeout:          1 * time.Hour, // Very long default
+	}
+	p := NewPredictor("test-node", thresholds)
+
+	// Add enough samples for prediction
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryUsagePercent: 40.0,
+			LoadAverage1Min:    1.0,
+		})
+	}
+
+	// Create context with existing deadline
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryUsagePercent: 40.0,
+		LoadAverage1Min:    1.0,
+	}
+
+	// Should succeed - existing deadline is respected, not overwritten
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+	if pred == nil {
+		t.Error("Predict() returned nil prediction")
+	}
+}
