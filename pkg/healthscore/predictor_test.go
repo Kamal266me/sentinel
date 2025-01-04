@@ -161,13 +161,19 @@ func TestPredictMemoryPressure(t *testing.T) {
 	p := NewPredictor("test-node", nil)
 	ctx := context.Background()
 
-	// Add normal samples
+	// Add normal samples with all required metrics
 	for i := 0; i < 50; i++ {
 		p.AddSample(&collector.NodeMetrics{
 			CPUTemperature:     50.0,
 			CPUUsagePercent:    30.0,
+			MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 			MemoryUsagePercent: 50.0,
+			DiskTotalBytes:     100 * 1024 * 1024 * 1024,
+			DiskUsagePercent:   50.0,
 			LoadAverage1Min:    1.0,
+			NetworkLatencyMs:   10.0,
+			NetworkRxBytes:     1024 * 1024,
+			NetworkTxBytes:     512 * 1024,
 		})
 	}
 
@@ -175,8 +181,14 @@ func TestPredictMemoryPressure(t *testing.T) {
 	current := &collector.NodeMetrics{
 		CPUTemperature:     50.0,
 		CPUUsagePercent:    30.0,
+		MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 		MemoryUsagePercent: 96.0, // Critical!
+		DiskTotalBytes:     100 * 1024 * 1024 * 1024,
+		DiskUsagePercent:   50.0,
 		LoadAverage1Min:    1.0,
+		NetworkLatencyMs:   10.0,
+		NetworkRxBytes:     2 * 1024 * 1024,
+		NetworkTxBytes:     1024 * 1024,
 	}
 
 	pred, err := p.Predict(ctx, current)
@@ -303,14 +315,20 @@ func TestPredictOOMEvent(t *testing.T) {
 	p := NewPredictor("test-node", nil)
 	ctx := context.Background()
 
-	// Add samples without OOM
+	// Add samples without OOM with all required metrics
 	for i := 0; i < 50; i++ {
 		p.AddSample(&collector.NodeMetrics{
 			CPUTemperature:     50.0,
 			CPUUsagePercent:    30.0,
+			MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 			MemoryUsagePercent: 70.0,
 			OOMKillCount:       0,
+			DiskTotalBytes:     100 * 1024 * 1024 * 1024,
+			DiskUsagePercent:   50.0,
 			LoadAverage1Min:    1.0,
+			NetworkLatencyMs:   10.0,
+			NetworkRxBytes:     1024 * 1024,
+			NetworkTxBytes:     512 * 1024,
 		})
 	}
 
@@ -318,9 +336,15 @@ func TestPredictOOMEvent(t *testing.T) {
 	current := &collector.NodeMetrics{
 		CPUTemperature:     50.0,
 		CPUUsagePercent:    30.0,
+		MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 		MemoryUsagePercent: 85.0,
 		OOMKillCount:       1, // OOM happened!
+		DiskTotalBytes:     100 * 1024 * 1024 * 1024,
+		DiskUsagePercent:   50.0,
 		LoadAverage1Min:    1.0,
+		NetworkLatencyMs:   10.0,
+		NetworkRxBytes:     2 * 1024 * 1024,
+		NetworkTxBytes:     1024 * 1024,
 	}
 
 	pred, err := p.Predict(ctx, current)
@@ -413,9 +437,14 @@ func TestPredictDiskCritical(t *testing.T) {
 		p.AddSample(&collector.NodeMetrics{
 			CPUTemperature:     50.0,
 			CPUUsagePercent:    30.0,
+			MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 			MemoryUsagePercent: 40.0,
+			DiskTotalBytes:     100 * 1024 * 1024 * 1024,
 			DiskUsagePercent:   50.0,
 			LoadAverage1Min:    1.0,
+			NetworkLatencyMs:   10.0,
+			NetworkRxBytes:     1024 * 1024,
+			NetworkTxBytes:     512 * 1024,
 		})
 	}
 
@@ -423,9 +452,14 @@ func TestPredictDiskCritical(t *testing.T) {
 	current := &collector.NodeMetrics{
 		CPUTemperature:     50.0,
 		CPUUsagePercent:    30.0,
+		MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 		MemoryUsagePercent: 40.0,
+		DiskTotalBytes:     100 * 1024 * 1024 * 1024,
 		DiskUsagePercent:   96.0, // Critical!
 		LoadAverage1Min:    1.0,
+		NetworkLatencyMs:   10.0,
+		NetworkRxBytes:     2 * 1024 * 1024,
+		NetworkTxBytes:     1024 * 1024,
 	}
 
 	pred, err := p.Predict(ctx, current)
@@ -461,9 +495,14 @@ func TestPredictDiskIOLatency(t *testing.T) {
 		p.AddSample(&collector.NodeMetrics{
 			CPUTemperature:     50.0,
 			CPUUsagePercent:    30.0,
+			MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 			MemoryUsagePercent: 40.0,
+			DiskTotalBytes:     100 * 1024 * 1024 * 1024,
 			DiskIOLatencyMs:    5.0,
 			LoadAverage1Min:    1.0,
+			NetworkLatencyMs:   10.0,
+			NetworkRxBytes:     1024 * 1024,
+			NetworkTxBytes:     512 * 1024,
 		})
 	}
 
@@ -471,9 +510,14 @@ func TestPredictDiskIOLatency(t *testing.T) {
 	current := &collector.NodeMetrics{
 		CPUTemperature:     50.0,
 		CPUUsagePercent:    30.0,
+		MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
 		MemoryUsagePercent: 40.0,
+		DiskTotalBytes:     100 * 1024 * 1024 * 1024,
 		DiskIOLatencyMs:    150.0, // Critical latency!
 		LoadAverage1Min:    1.0,
+		NetworkLatencyMs:   10.0,
+		NetworkRxBytes:     2 * 1024 * 1024,
+		NetworkTxBytes:     1024 * 1024,
 	}
 
 	pred, err := p.Predict(ctx, current)
@@ -597,6 +641,7 @@ func TestCalculateDiskRisk(t *testing.T) {
 		{
 			name: "normal disk",
 			metrics: &collector.NodeMetrics{
+				DiskTotalBytes:   100 * 1024 * 1024 * 1024,
 				DiskUsagePercent: 50.0,
 				DiskIOLatencyMs:  5.0,
 			},
@@ -607,6 +652,7 @@ func TestCalculateDiskRisk(t *testing.T) {
 		{
 			name: "disk full",
 			metrics: &collector.NodeMetrics{
+				DiskTotalBytes:   100 * 1024 * 1024 * 1024,
 				DiskUsagePercent: 96.0,
 				DiskIOLatencyMs:  5.0,
 			},
@@ -617,6 +663,7 @@ func TestCalculateDiskRisk(t *testing.T) {
 		{
 			name: "high latency",
 			metrics: &collector.NodeMetrics{
+				DiskTotalBytes:   100 * 1024 * 1024 * 1024,
 				DiskUsagePercent: 50.0,
 				DiskIOLatencyMs:  120.0,
 			},
@@ -627,6 +674,7 @@ func TestCalculateDiskRisk(t *testing.T) {
 		{
 			name: "disk full with high latency",
 			metrics: &collector.NodeMetrics{
+				DiskTotalBytes:   100 * 1024 * 1024 * 1024,
 				DiskUsagePercent: 96.0,
 				DiskIOLatencyMs:  120.0,
 			},
@@ -638,7 +686,11 @@ func TestCalculateDiskRisk(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			risk, reason := p.calculateDiskRisk(tt.metrics)
+			risk, reason, available := p.calculateDiskRisk(tt.metrics)
+
+			if !available {
+				t.Error("calculateDiskRisk() expected metrics to be available")
+			}
 
 			if risk < tt.wantMinRisk || risk > tt.wantMaxRisk {
 				t.Errorf("calculateDiskRisk() risk = %v, want between %v and %v",
@@ -716,7 +768,11 @@ func TestCalculateNetworkRisk(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			risk, reason := p.calculateNetworkRisk(tt.metrics)
+			risk, reason, available := p.calculateNetworkRisk(tt.metrics)
+
+			if !available {
+				t.Error("calculateNetworkRisk() expected metrics to be available")
+			}
 
 			if risk < tt.wantMinRisk || risk > tt.wantMaxRisk {
 				t.Errorf("calculateNetworkRisk() risk = %v, want between %v and %v",
@@ -840,5 +896,185 @@ func TestPredictRespectsExistingDeadline(t *testing.T) {
 	}
 	if pred == nil {
 		t.Error("Predict() returned nil prediction")
+	}
+}
+
+func TestGracefulDegradationPartialMetrics(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+	ctx := context.Background()
+
+	// Add samples with all metrics
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     60.0,
+			CPUUsagePercent:    50.0,
+			MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
+			MemoryUsagePercent: 60.0,
+			DiskTotalBytes:     100 * 1024 * 1024 * 1024,
+			DiskUsagePercent:   70.0,
+			LoadAverage1Min:    2.0,
+			NetworkLatencyMs:   50.0,
+			NetworkRxBytes:     1024 * 1024,
+			NetworkTxBytes:     512 * 1024,
+		})
+	}
+
+	// Current sample is missing some metrics (no disk, no network)
+	current := &collector.NodeMetrics{
+		CPUTemperature:     70.0, // Elevated
+		CPUUsagePercent:    80.0, // High
+		MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
+		MemoryUsagePercent: 85.0, // High
+		LoadAverage1Min:    3.0,
+		// DiskTotalBytes = 0 (unavailable)
+		// Network metrics = 0 (unavailable)
+	}
+
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+
+	// Should still produce a prediction
+	if pred == nil {
+		t.Fatal("Predict() returned nil, expected prediction with partial metrics")
+	}
+
+	// Confidence should be reduced due to missing metrics
+	if pred.Confidence >= 0.8 {
+		t.Errorf("Confidence = %v, want < 0.8 for partial metrics", pred.Confidence)
+	}
+
+	// Should have partial_metrics_available reason
+	hasPartialReason := false
+	for _, r := range pred.Reasons {
+		if strings.Contains(r, "partial_metrics") {
+			hasPartialReason = true
+			break
+		}
+	}
+	if !hasPartialReason {
+		t.Errorf("Expected partial_metrics_available reason in %v", pred.Reasons)
+	}
+}
+
+func TestGracefulDegradationNoMetrics(t *testing.T) {
+	p := NewPredictor("test-node", nil)
+	ctx := context.Background()
+
+	// Add minimal history
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			LoadAverage1Min: 1.0,
+		})
+	}
+
+	// Current sample has no usable metrics
+	current := &collector.NodeMetrics{
+		// All availability checks will fail:
+		// - CPUTemperature <= 0
+		// - MemoryTotalBytes == 0
+		// - CPUUsagePercent == 0 && LoadAverage == 0
+		// - DiskTotalBytes == 0
+		// - NetworkLatencyMs == 0 && NetworkRx/Tx == 0
+	}
+
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+
+	// Should return prediction with very low confidence
+	if pred == nil {
+		t.Fatal("Predict() returned nil, expected low-confidence prediction")
+	}
+
+	// Should have very low confidence
+	if pred.Confidence > 0.2 {
+		t.Errorf("Confidence = %v, want <= 0.2 for no metrics", pred.Confidence)
+	}
+}
+
+func TestConfigurableRiskWeights(t *testing.T) {
+	// Custom weights that emphasize memory
+	customWeights := &RiskWeights{
+		Thermal: 0.10,
+		Memory:  0.50, // Heavy emphasis on memory
+		CPU:     0.10,
+		Disk:    0.10,
+		Network: 0.05,
+		Trend:   0.15,
+	}
+
+	thresholds := &PredictionThresholds{
+		FailureProbabilityWarn:     0.3,
+		FailureProbabilityCritical: 0.7,
+		MinConfidence:              0.6,
+		TimeToFailureThreshold:     15 * time.Minute,
+		PredictionTimeout:          100 * time.Millisecond,
+		RiskWeights:                customWeights,
+	}
+
+	p := NewPredictor("test-node", thresholds)
+	ctx := context.Background()
+
+	// Add baseline samples
+	for i := 0; i < 50; i++ {
+		p.AddSample(&collector.NodeMetrics{
+			CPUTemperature:     50.0,
+			CPUUsagePercent:    30.0,
+			MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
+			MemoryUsagePercent: 50.0,
+			DiskTotalBytes:     100 * 1024 * 1024 * 1024,
+			DiskUsagePercent:   50.0,
+			LoadAverage1Min:    1.0,
+			NetworkLatencyMs:   10.0,
+			NetworkRxBytes:     1024 * 1024,
+			NetworkTxBytes:     512 * 1024,
+		})
+	}
+
+	// Current sample has critical memory
+	current := &collector.NodeMetrics{
+		CPUTemperature:     50.0,
+		CPUUsagePercent:    30.0,
+		MemoryTotalBytes:   16 * 1024 * 1024 * 1024,
+		MemoryUsagePercent: 96.0, // Critical!
+		DiskTotalBytes:     100 * 1024 * 1024 * 1024,
+		DiskUsagePercent:   50.0,
+		LoadAverage1Min:    1.0,
+		NetworkLatencyMs:   10.0,
+		NetworkRxBytes:     2 * 1024 * 1024,
+		NetworkTxBytes:     1024 * 1024,
+	}
+
+	pred, err := p.Predict(ctx, current)
+	if err != nil {
+		t.Fatalf("Predict() error = %v", err)
+	}
+
+	// With 50% weight on memory and critical memory usage,
+	// the failure probability should be higher than with default weights
+	// Memory risk at 96% usage = 1.0, * 0.50 weight = 0.50 contribution
+	if pred.FailureProbability < 0.4 {
+		t.Errorf("FailureProbability = %v, want > 0.4 with high memory weight", pred.FailureProbability)
+	}
+}
+
+func TestDefaultRiskWeights(t *testing.T) {
+	weights := DefaultRiskWeights()
+
+	// Weights should sum to 1.0
+	sum := weights.Thermal + weights.Memory + weights.CPU + weights.Disk + weights.Network + weights.Trend
+	if sum < 0.99 || sum > 1.01 {
+		t.Errorf("DefaultRiskWeights sum = %v, want ~1.0", sum)
+	}
+
+	// Check individual values
+	if weights.Thermal != 0.30 {
+		t.Errorf("Thermal weight = %v, want 0.30", weights.Thermal)
+	}
+	if weights.Memory != 0.20 {
+		t.Errorf("Memory weight = %v, want 0.20", weights.Memory)
 	}
 }

@@ -28,6 +28,29 @@ type Prediction struct {
 	Recommendation     string    `json:"recommendation"`
 }
 
+// RiskWeights configures the relative importance of each risk factor.
+// Weights should sum to 1.0 for proper probability calculation.
+type RiskWeights struct {
+	Thermal float64 `json:"thermal"` // Default: 0.30
+	Memory  float64 `json:"memory"`  // Default: 0.20
+	CPU     float64 `json:"cpu"`     // Default: 0.15
+	Disk    float64 `json:"disk"`    // Default: 0.10
+	Network float64 `json:"network"` // Default: 0.10
+	Trend   float64 `json:"trend"`   // Default: 0.15
+}
+
+// DefaultRiskWeights returns the default risk factor weights.
+func DefaultRiskWeights() *RiskWeights {
+	return &RiskWeights{
+		Thermal: 0.30,
+		Memory:  0.20,
+		CPU:     0.15,
+		Disk:    0.10,
+		Network: 0.10,
+		Trend:   0.15,
+	}
+}
+
 // PredictionThresholds configures when to trigger alerts/actions.
 type PredictionThresholds struct {
 	// FailureProbabilityWarn triggers a warning
@@ -40,6 +63,8 @@ type PredictionThresholds struct {
 	TimeToFailureThreshold time.Duration
 	// PredictionTimeout is the maximum time allowed for a prediction
 	PredictionTimeout time.Duration
+	// RiskWeights configures the weight of each risk factor
+	RiskWeights *RiskWeights
 }
 
 // DefaultThresholds returns sensible defaults for edge environments.
@@ -50,6 +75,7 @@ func DefaultThresholds() *PredictionThresholds {
 		MinConfidence:              0.6,
 		TimeToFailureThreshold:     15 * time.Minute,
 		PredictionTimeout:          100 * time.Millisecond,
+		RiskWeights:                DefaultRiskWeights(),
 	}
 }
 
@@ -79,6 +105,10 @@ type featureStats struct {
 func NewPredictor(nodeName string, thresholds *PredictionThresholds) *Predictor {
 	if thresholds == nil {
 		thresholds = DefaultThresholds()
+	}
+	// Ensure RiskWeights is set
+	if thresholds.RiskWeights == nil {
+		thresholds.RiskWeights = DefaultRiskWeights()
 	}
 	return &Predictor{
 		nodeName:   nodeName,
@@ -177,52 +207,83 @@ func (p *Predictor) Predict(ctx context.Context, current *collector.NodeMetrics)
 		return pred, nil
 	}
 
-	// Calculate risk factors
-	// Weights: thermal=30%, memory=20%, cpu=15%, disk=10%, network=10%, trend=15%
+	// Calculate risk factors using configurable weights
+	weights := p.thresholds.RiskWeights
 	var riskScore float64
 	var confidence float64 = 0.8 // Base confidence
+	var availableWeight float64  // Track weights of available metrics
 	reasons := make([]string, 0)
 
 	// 1. Thermal risk - critical for edge devices
-	thermalRisk, thermalReason := p.calculateThermalRisk(current)
-	riskScore += thermalRisk * 0.30
-	if thermalReason != "" {
-		reasons = append(reasons, thermalReason)
+	thermalRisk, thermalReason, thermalAvailable := p.calculateThermalRisk(current)
+	if thermalAvailable {
+		riskScore += thermalRisk * weights.Thermal
+		availableWeight += weights.Thermal
+		if thermalReason != "" {
+			reasons = append(reasons, thermalReason)
+		}
 	}
 
 	// 2. Memory pressure risk
-	memoryRisk, memoryReason := p.calculateMemoryRisk(current)
-	riskScore += memoryRisk * 0.20
-	if memoryReason != "" {
-		reasons = append(reasons, memoryReason)
+	memoryRisk, memoryReason, memoryAvailable := p.calculateMemoryRisk(current)
+	if memoryAvailable {
+		riskScore += memoryRisk * weights.Memory
+		availableWeight += weights.Memory
+		if memoryReason != "" {
+			reasons = append(reasons, memoryReason)
+		}
 	}
 
 	// 3. CPU overload risk
-	cpuRisk, cpuReason := p.calculateCPURisk(current)
-	riskScore += cpuRisk * 0.15
-	if cpuReason != "" {
-		reasons = append(reasons, cpuReason)
+	cpuRisk, cpuReason, cpuAvailable := p.calculateCPURisk(current)
+	if cpuAvailable {
+		riskScore += cpuRisk * weights.CPU
+		availableWeight += weights.CPU
+		if cpuReason != "" {
+			reasons = append(reasons, cpuReason)
+		}
 	}
 
 	// 4. Disk I/O risk
-	diskRisk, diskReason := p.calculateDiskRisk(current)
-	riskScore += diskRisk * 0.10
-	if diskReason != "" {
-		reasons = append(reasons, diskReason)
+	diskRisk, diskReason, diskAvailable := p.calculateDiskRisk(current)
+	if diskAvailable {
+		riskScore += diskRisk * weights.Disk
+		availableWeight += weights.Disk
+		if diskReason != "" {
+			reasons = append(reasons, diskReason)
+		}
 	}
 
 	// 5. Network risk
-	networkRisk, networkReason := p.calculateNetworkRisk(current)
-	riskScore += networkRisk * 0.10
-	if networkReason != "" {
-		reasons = append(reasons, networkReason)
+	networkRisk, networkReason, networkAvailable := p.calculateNetworkRisk(current)
+	if networkAvailable {
+		riskScore += networkRisk * weights.Network
+		availableWeight += weights.Network
+		if networkReason != "" {
+			reasons = append(reasons, networkReason)
+		}
 	}
 
 	// 6. Trend analysis
 	trendRisk, trendReason := p.calculateTrendRisk()
-	riskScore += trendRisk * 0.15
+	riskScore += trendRisk * weights.Trend
+	availableWeight += weights.Trend
 	if trendReason != "" {
 		reasons = append(reasons, trendReason)
+	}
+
+	// Graceful degradation: normalize score based on available metrics
+	// If some metrics are unavailable, scale up remaining metrics proportionally
+	if availableWeight > 0 && availableWeight < 1.0 {
+		riskScore = riskScore / availableWeight
+		// Reduce confidence when metrics are missing
+		confidence *= availableWeight
+		reasons = append(reasons, "partial_metrics_available")
+	} else if availableWeight == 0 {
+		// No metrics available at all
+		pred.Confidence = 0.1
+		pred.Reasons = append(pred.Reasons, "no_metrics_available")
+		return pred, nil
 	}
 
 	// Clamp risk score
@@ -248,7 +309,7 @@ func (p *Predictor) Predict(ctx context.Context, current *collector.NodeMetrics)
 	return pred, nil
 }
 
-func (p *Predictor) calculateThermalRisk(m *collector.NodeMetrics) (float64, string) {
+func (p *Predictor) calculateThermalRisk(m *collector.NodeMetrics) (float64, string, bool) {
 	// Thermal zones (typical for ARM and x86):
 	// < 60°C: Normal
 	// 60-75°C: Elevated
@@ -257,7 +318,7 @@ func (p *Predictor) calculateThermalRisk(m *collector.NodeMetrics) (float64, str
 
 	temp := m.CPUTemperature
 	if temp <= 0 {
-		return 0, "" // No thermal data
+		return 0, "", false // No thermal data available
 	}
 
 	var risk float64
@@ -309,10 +370,15 @@ func (p *Predictor) calculateThermalRisk(m *collector.NodeMetrics) (float64, str
 		risk = 1.0
 	}
 
-	return risk, reason
+	return risk, reason, true
 }
 
-func (p *Predictor) calculateMemoryRisk(m *collector.NodeMetrics) (float64, string) {
+func (p *Predictor) calculateMemoryRisk(m *collector.NodeMetrics) (float64, string, bool) {
+	// Check if memory metrics are available
+	if m.MemoryTotalBytes == 0 {
+		return 0, "", false
+	}
+
 	usage := m.MemoryUsagePercent
 	var risk float64
 	var reason string
@@ -361,10 +427,15 @@ func (p *Predictor) calculateMemoryRisk(m *collector.NodeMetrics) (float64, stri
 		risk = 1.0
 	}
 
-	return risk, reason
+	return risk, reason, true
 }
 
-func (p *Predictor) calculateCPURisk(m *collector.NodeMetrics) (float64, string) {
+func (p *Predictor) calculateCPURisk(m *collector.NodeMetrics) (float64, string, bool) {
+	// CPU usage of 0 with no load average data indicates unavailable metrics
+	if m.CPUUsagePercent == 0 && m.LoadAverage1Min == 0 && m.LoadAverage5Min == 0 {
+		return 0, "", false
+	}
+
 	var risk float64
 	var reason string
 
@@ -400,10 +471,15 @@ func (p *Predictor) calculateCPURisk(m *collector.NodeMetrics) (float64, string)
 		risk = 1.0
 	}
 
-	return risk, reason
+	return risk, reason, true
 }
 
-func (p *Predictor) calculateDiskRisk(m *collector.NodeMetrics) (float64, string) {
+func (p *Predictor) calculateDiskRisk(m *collector.NodeMetrics) (float64, string, bool) {
+	// Check if disk metrics are available
+	if m.DiskTotalBytes == 0 {
+		return 0, "", false
+	}
+
 	var risk float64
 	var reason string
 
@@ -448,10 +524,16 @@ func (p *Predictor) calculateDiskRisk(m *collector.NodeMetrics) (float64, string
 		risk = 1.0
 	}
 
-	return risk, reason
+	return risk, reason, true
 }
 
-func (p *Predictor) calculateNetworkRisk(m *collector.NodeMetrics) (float64, string) {
+func (p *Predictor) calculateNetworkRisk(m *collector.NodeMetrics) (float64, string, bool) {
+	// Network latency of 0 with no traffic indicates unavailable metrics
+	// (negative latency is invalid, 0 could be valid but rare)
+	if m.NetworkLatencyMs == 0 && m.NetworkRxBytes == 0 && m.NetworkTxBytes == 0 {
+		return 0, "", false
+	}
+
 	var risk float64
 	var reason string
 
@@ -506,7 +588,7 @@ func (p *Predictor) calculateNetworkRisk(m *collector.NodeMetrics) (float64, str
 		risk = 1.0
 	}
 
-	return risk, reason
+	return risk, reason, true
 }
 
 func (p *Predictor) calculateTrendRisk() (float64, string) {
