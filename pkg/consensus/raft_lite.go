@@ -158,6 +158,43 @@ type peerConn struct {
 	lastSeen    time.Time
 	healthy     bool
 	rateLimiter *tokenBucket
+
+	// Exponential backoff for reconnection
+	consecutiveFailures int
+	nextRetryTime       time.Time
+}
+
+// backoffConfig defines exponential backoff parameters.
+type backoffConfig struct {
+	initialDelay time.Duration
+	maxDelay     time.Duration
+	multiplier   float64
+}
+
+var defaultBackoff = backoffConfig{
+	initialDelay: 100 * time.Millisecond,
+	maxDelay:     30 * time.Second,
+	multiplier:   2.0,
+}
+
+// calculateBackoff returns the next backoff duration based on failure count.
+func calculateBackoff(failures int, cfg backoffConfig) time.Duration {
+	if failures <= 0 {
+		return cfg.initialDelay
+	}
+
+	delay := cfg.initialDelay
+	for i := 0; i < failures && delay < cfg.maxDelay; i++ {
+		delay = time.Duration(float64(delay) * cfg.multiplier)
+	}
+
+	if delay > cfg.maxDelay {
+		delay = cfg.maxDelay
+	}
+
+	// Add jitter (10% of delay)
+	jitter := time.Duration(mathrand.Int63n(int64(delay / 10)))
+	return delay + jitter
 }
 
 // tokenBucket implements a simple token bucket rate limiter.
@@ -663,7 +700,7 @@ func (n *Node) handleDecisionProposal(msg *Message) *Message {
 func (n *Node) peerConnector() {
 	defer n.wg.Done()
 
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -672,13 +709,26 @@ func (n *Node) peerConnector() {
 			return
 		case <-ticker.C:
 			n.mu.Lock()
+			now := time.Now()
 			for addr, peer := range n.peers {
 				if peer.conn == nil || !peer.healthy {
+					// Check if we should retry based on backoff
+					if now.Before(peer.nextRetryTime) {
+						continue
+					}
+
 					conn, err := net.DialTimeout("tcp", addr, time.Second)
 					if err == nil {
 						peer.conn = conn
 						peer.healthy = true
-						peer.lastSeen = time.Now()
+						peer.lastSeen = now
+						peer.consecutiveFailures = 0
+						peer.nextRetryTime = time.Time{} // Reset backoff
+					} else {
+						// Apply exponential backoff
+						peer.consecutiveFailures++
+						backoffDuration := calculateBackoff(peer.consecutiveFailures, defaultBackoff)
+						peer.nextRetryTime = now.Add(backoffDuration)
 					}
 				}
 			}

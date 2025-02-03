@@ -553,6 +553,71 @@ func TestGetOrCreateLimiter(t *testing.T) {
 	}
 }
 
+func TestCalculateBackoff(t *testing.T) {
+	cfg := backoffConfig{
+		initialDelay: 100 * time.Millisecond,
+		maxDelay:     10 * time.Second,
+		multiplier:   2.0,
+	}
+
+	tests := []struct {
+		failures int
+		minDelay time.Duration
+		maxDelay time.Duration
+	}{
+		{0, 100 * time.Millisecond, 120 * time.Millisecond}, // Initial + jitter
+		{1, 200 * time.Millisecond, 240 * time.Millisecond}, // 100 * 2 + jitter
+		{2, 400 * time.Millisecond, 480 * time.Millisecond}, // 200 * 2 + jitter
+		{3, 800 * time.Millisecond, 960 * time.Millisecond}, // 400 * 2 + jitter
+		{10, 10 * time.Second, 11 * time.Second},            // Should cap at maxDelay + jitter
+	}
+
+	for _, tt := range tests {
+		delay := calculateBackoff(tt.failures, cfg)
+		if delay < tt.minDelay || delay > tt.maxDelay {
+			t.Errorf("calculateBackoff(%d) = %v, want between %v and %v",
+				tt.failures, delay, tt.minDelay, tt.maxDelay)
+		}
+	}
+}
+
+func TestDefaultBackoffConfig(t *testing.T) {
+	if defaultBackoff.initialDelay != 100*time.Millisecond {
+		t.Errorf("initialDelay = %v, want 100ms", defaultBackoff.initialDelay)
+	}
+	if defaultBackoff.maxDelay != 30*time.Second {
+		t.Errorf("maxDelay = %v, want 30s", defaultBackoff.maxDelay)
+	}
+	if defaultBackoff.multiplier != 2.0 {
+		t.Errorf("multiplier = %v, want 2.0", defaultBackoff.multiplier)
+	}
+}
+
+func TestPeerConnBackoffFields(t *testing.T) {
+	peer := &peerConn{
+		addr: "127.0.0.1:8080",
+	}
+
+	// Initial state
+	if peer.consecutiveFailures != 0 {
+		t.Errorf("consecutiveFailures = %d, want 0", peer.consecutiveFailures)
+	}
+	if !peer.nextRetryTime.IsZero() {
+		t.Errorf("nextRetryTime should be zero initially")
+	}
+
+	// Simulate failure
+	peer.consecutiveFailures++
+	peer.nextRetryTime = time.Now().Add(calculateBackoff(peer.consecutiveFailures, defaultBackoff))
+
+	if peer.consecutiveFailures != 1 {
+		t.Errorf("consecutiveFailures = %d, want 1", peer.consecutiveFailures)
+	}
+	if peer.nextRetryTime.IsZero() {
+		t.Error("nextRetryTime should not be zero after failure")
+	}
+}
+
 func BenchmarkHandleHeartbeat(b *testing.B) {
 	config := DefaultConfig("bench-node")
 	node, err := NewNode(config)
