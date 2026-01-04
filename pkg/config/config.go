@@ -33,12 +33,12 @@ type ServerConfig struct {
 
 // PredictorConfig holds prediction engine settings.
 type PredictorConfig struct {
-	Interval              time.Duration `json:"interval" yaml:"interval"`
-	WarnThreshold         float64       `json:"warn_threshold" yaml:"warn_threshold"`
-	CriticalThreshold     float64       `json:"critical_threshold" yaml:"critical_threshold"`
-	MinConfidence         float64       `json:"min_confidence" yaml:"min_confidence"`
-	TimeToFailureWindow   time.Duration `json:"time_to_failure_window" yaml:"time_to_failure_window"`
-	RiskWeights           RiskWeights   `json:"risk_weights" yaml:"risk_weights"`
+	Interval            time.Duration `json:"interval" yaml:"interval"`
+	WarnThreshold       float64       `json:"warn_threshold" yaml:"warn_threshold"`
+	CriticalThreshold   float64       `json:"critical_threshold" yaml:"critical_threshold"`
+	MinConfidence       float64       `json:"min_confidence" yaml:"min_confidence"`
+	TimeToFailureWindow time.Duration `json:"time_to_failure_window" yaml:"time_to_failure_window"`
+	RiskWeights         RiskWeights   `json:"risk_weights" yaml:"risk_weights"`
 }
 
 // RiskWeights holds risk factor weights.
@@ -53,9 +53,9 @@ type RiskWeights struct {
 
 // ConsensusConfig holds consensus/partition settings.
 type ConsensusConfig struct {
-	Enabled   bool        `json:"enabled" yaml:"enabled"`
-	Addr      string      `json:"addr" yaml:"addr"`
-	Peers     []string    `json:"peers" yaml:"peers"`
+	Enabled   bool            `json:"enabled" yaml:"enabled"`
+	Addr      string          `json:"addr" yaml:"addr"`
+	Peers     []string        `json:"peers" yaml:"peers"`
 	RateLimit RateLimitConfig `json:"rate_limit" yaml:"rate_limit"`
 }
 

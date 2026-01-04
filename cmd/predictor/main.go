@@ -45,15 +45,15 @@ type server struct {
 
 func main() {
 	var (
-		configFile = flag.String("config", "", "Path to config file (YAML or JSON)")
-		nodeName   = flag.String("node", "", "Node name (default: hostname)")
-		listenAddr = flag.String("listen", ":9101", "API listen address")
-		metricsAddr = flag.String("metrics", ":9100", "Prometheus metrics listen address")
-		interval   = flag.Duration("interval", time.Second, "Metrics collection interval")
+		configFile    = flag.String("config", "", "Path to config file (YAML or JSON)")
+		nodeName      = flag.String("node", "", "Node name (default: hostname)")
+		listenAddr    = flag.String("listen", ":9101", "API listen address")
+		metricsAddr   = flag.String("metrics", ":9100", "Prometheus metrics listen address")
+		interval      = flag.Duration("interval", time.Second, "Metrics collection interval")
 		consensusAddr = flag.String("consensus-addr", "", "Consensus listen address")
-		peers      = flag.String("peers", "", "Comma-separated peer addresses")
-		logLevel   = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
-		logFormat  = flag.String("log-format", "text", "Log format (text, json)")
+		peers         = flag.String("peers", "", "Comma-separated peer addresses")
+		logLevel      = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
+		logFormat     = flag.String("log-format", "text", "Log format (text, json)")
 
 		// Prediction thresholds
 		warnThreshold     = flag.Float64("warn-threshold", 0.3, "Warning threshold")

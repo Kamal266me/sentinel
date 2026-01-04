@@ -424,21 +424,12 @@ func TestTwoNodeCommunication(t *testing.T) {
 	// Wait for election to complete
 	time.Sleep(500 * time.Millisecond)
 
-	// One should be leader
-	leaders := 0
-	if node1.IsLeader() {
-		leaders++
-	}
-	if node2.IsLeader() {
-		leaders++
-	}
-
 	// In a 2-node cluster, we need both to agree on leader
 	// This test is somewhat flaky due to timing, so just log
-	t.Logf("Node1: state=%s, term=%d, leader=%s",
-		node1.State(), node1.Term(), node1.LeaderID())
-	t.Logf("Node2: state=%s, term=%d, leader=%s",
-		node2.State(), node2.Term(), node2.LeaderID())
+	t.Logf("Node1: state=%s, term=%d, leader=%s, isLeader=%v",
+		node1.State(), node1.Term(), node1.LeaderID(), node1.IsLeader())
+	t.Logf("Node2: state=%s, term=%d, leader=%s, isLeader=%v",
+		node2.State(), node2.Term(), node2.LeaderID(), node2.IsLeader())
 }
 
 func TestRateLimiterTokenBucket(t *testing.T) {
